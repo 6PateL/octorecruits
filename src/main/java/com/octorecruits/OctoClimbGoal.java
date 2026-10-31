@@ -6,6 +6,7 @@ import com.talhanation.recruits.entities.AbstractRecruitEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -28,6 +29,9 @@ public class OctoClimbGoal extends Goal {
     private int climbTicks;
     private int chaseTicks;
     private int chaseCooldownUntil;
+    private double lastX, lastY, lastZ;
+    private int stuckCheckedAt = -100;
+    private boolean stuck;
     private int losCheckedAt = -100;
     private boolean losCached;
 
@@ -65,7 +69,7 @@ public class OctoClimbGoal extends Goal {
             // Do not climb up when the route leads down.
             return goal == null || goal.getY() >= mob.getBlockY() - 1;
         }
-        return chaseTarget() != null;
+        return goalPos() != null;
     }
 
     /** An enemy above us that the ground pathfinder cannot reach: go straight at it. */
@@ -90,12 +94,50 @@ public class OctoClimbGoal extends Goal {
         return losCached ? target : null;
     }
 
+    /** Where the recruit wants to go but cannot walk: a visible enemy above, or the owner / move point when he is stuck (a pit). */
+    private Vec3 goalPos() {
+        LivingEntity target = chaseTarget();
+        if (target != null) {
+            return target.position();
+        }
+        int range = OctoConfig.CHASE_RANGE.get() * 2;
+        if (range <= 0 || mob.getNavigation().isInProgress()) {
+            return null;
+        }
+        if (mob.tickCount - stuckCheckedAt >= 20) {
+            stuckCheckedAt = mob.tickCount;
+            double dx = mob.getX() - lastX, dy = mob.getY() - lastY, dz = mob.getZ() - lastZ;
+            stuck = dx * dx + dy * dy + dz * dz < 0.09D;
+            lastX = mob.getX();
+            lastY = mob.getY();
+            lastZ = mob.getZ();
+        }
+        if (!stuck) {
+            return null;
+        }
+        Vec3 dest = null;
+        if (mob.getShouldFollow()) {
+            Player owner = mob.getOwner();
+            if (owner != null && owner.isAlive()) {
+                dest = owner.position();
+            }
+        }
+        if (dest == null && mob.getShouldMovePos() && mob.getMovePos() != null) {
+            dest = Vec3.atBottomCenterOf(mob.getMovePos());
+        }
+        if (dest == null) {
+            return null;
+        }
+        double d2 = mob.distanceToSqr(dest);
+        return d2 >= 36.0D && d2 <= (double) range * range ? dest : null;
+    }
+
     @Override
     public boolean canUse() {
         if (!OctoConfig.ENABLED.get() || !wearsRig()) {
             return false;
         }
-        return pressedAgainstWall() || chaseTarget() != null;
+        return pressedAgainstWall() || goalPos() != null;
     }
 
     @Override
@@ -116,9 +158,9 @@ public class OctoClimbGoal extends Goal {
 
     @Override
     public void tick() {
-        LivingEntity target = chaseTarget();
-        if (target != null) {
-            mob.getMoveControl().setWantedPosition(target.getX(), target.getY(), target.getZ(), 1.0D);
+        Vec3 goal = goalPos();
+        if (goal != null) {
+            mob.getMoveControl().setWantedPosition(goal.x, goal.y, goal.z, 1.0D);
             if (++chaseTicks > 200) {
                 // Could not get there in 10 seconds: give up for a while instead of pressing at a wall forever.
                 chaseTicks = 0;
