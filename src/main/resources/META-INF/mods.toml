@@ -1,0 +1,44 @@
+modLoader="javafml"
+loaderVersion="[47,)"
+license="MIT"
+
+[[mods]]
+modId="octorecruits"
+version="${mod_version}"
+displayName="Octo Recruits"
+description='''Recruits wearing the Tentacle Rig from Create: Octo Arms in the chest slot climb walls like spiders. No use button, no heavy logic: the rig simply works while it is worn.'''
+
+[[dependencies.octorecruits]]
+    modId="forge"
+    mandatory=true
+    versionRange="[47,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.octorecruits]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.20.1,1.21)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.octorecruits]]
+    modId="create"
+    mandatory=true
+    versionRange="[6.0.0,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.octorecruits]]
+    modId="recruits"
+    mandatory=true
+    versionRange="[1.15.2,)"
+    ordering="AFTER"
+    side="BOTH"
+
+[[dependencies.octorecruits]]
+    modId="tentaworks"
+    mandatory=false
+    versionRange="[1.6.0,)"
+    ordering="AFTER"
+    side="BOTH"
