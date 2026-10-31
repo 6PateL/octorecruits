@@ -10,6 +10,7 @@ public class OctoConfig {
     public static final ForgeConfigSpec.IntValue CHASE_RANGE;
     public static final ForgeConfigSpec.BooleanValue USE_AIR;
     public static final ForgeConfigSpec.DoubleValue AIR_PER_SECOND;
+    public static final ForgeConfigSpec.BooleanValue NO_FALL_DAMAGE;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -24,6 +25,8 @@ public class OctoConfig {
                 .define("useAir", false);
         AIR_PER_SECOND = b.comment("Air used per second of climbing when useAir is on.")
                 .defineInRange("airPerSecond", 5.0D, 0.0D, 100.0D);
+        NO_FALL_DAMAGE = b.comment("A recruit wearing the rig takes no fall damage (the tentacles catch him).")
+                .define("noFallDamage", true);
         b.pop();
         SPEC = b.build();
     }

@@ -34,6 +34,9 @@ public class OctoClimbGoal extends Goal {
     private double lastX, lastY, lastZ;
     private int stuckCheckedAt = -100;
     private boolean stuck;
+    private boolean escaping;
+    private double escapeStartY;
+    private int escapeTicks;
     private int losCheckedAt = -100;
     private boolean losCached;
 
@@ -41,6 +44,15 @@ public class OctoClimbGoal extends Goal {
         this.mob = mob;
         // No flags: this goal never blocks the recruit's own goals (attacking, following, holding position...).
         this.setFlags(EnumSet.noneOf(Flag.class));
+    }
+
+    /** True when the recruit has an Octo Arms rig in the chest slot (air is not considered). */
+    static boolean wearsRig(AbstractRecruitEntity mob) {
+        Item item = mob.getItemBySlot(EquipmentSlot.CHEST).getItem();
+        if (!(item instanceof BacktankItem) || ForgeRegistries.ITEMS.getKey(item) == null) {
+            return false;
+        }
+        return "tentaworks".equals(ForgeRegistries.ITEMS.getKey(item).getNamespace());
     }
 
     private boolean wearsRig() {
@@ -114,19 +126,10 @@ public class OctoClimbGoal extends Goal {
             lastY = mob.getY();
             lastZ = mob.getZ();
         }
-        if (!stuck) {
+        if (!escaping && !stuck) {
             return null;
         }
-        Vec3 dest = null;
-        if (mob.getShouldFollow()) {
-            Player owner = mob.getOwner();
-            if (owner != null && owner.isAlive()) {
-                dest = owner.position();
-            }
-        }
-        if (dest == null && mob.getShouldMovePos() && mob.getMovePos() != null) {
-            dest = Vec3.atBottomCenterOf(mob.getMovePos());
-        }
+        Vec3 dest = destination();
         if (dest == null) {
             return null;
         }
@@ -137,6 +140,21 @@ public class OctoClimbGoal extends Goal {
         // Far away, or clearly higher than us (a pit): near and level means he has simply arrived.
         boolean above = dest.y - mob.getY() >= 1.5D && d2 >= 4.0D;
         return (d2 >= 36.0D || above) ? dest : null;
+    }
+
+    /** The owner (follow order) or the move point the recruit was told to go to. */
+    private Vec3 destination() {
+        Vec3 dest = null;
+        if (mob.getShouldFollow()) {
+            Player owner = mob.getOwner();
+            if (owner != null && owner.isAlive()) {
+                dest = owner.position();
+            }
+        }
+        if (dest == null && mob.getShouldMovePos() && mob.getMovePos() != null) {
+            dest = Vec3.atBottomCenterOf(mob.getMovePos());
+        }
+        return dest;
     }
 
     @Override
@@ -154,6 +172,9 @@ public class OctoClimbGoal extends Goal {
 
     @Override
     public void start() {
+        escaping = !mob.getNavigation().isInProgress() && chaseTarget() == null;
+        escapeStartY = mob.getY();
+        escapeTicks = 0;
         if (LOGGED.getAndIncrement() < 20) {
             OctoRecruits.LOGGER.info("Recruit {} started climbing at {} (wall={}, goal={})", mob.getName().getString(),
                     mob.blockPosition(), mob.horizontalCollision, goalPos());
@@ -162,6 +183,7 @@ public class OctoClimbGoal extends Goal {
 
     @Override
     public void stop() {
+        escaping = false;
         climbTicks = 0;
         chaseTicks = 0;
     }
@@ -173,6 +195,14 @@ public class OctoClimbGoal extends Goal {
 
     @Override
     public void tick() {
+        if (escaping && (++escapeTicks > 300 || (mob.onGround() && mob.getY() > escapeStartY + 1.0D))) {
+            escaping = false;
+            stuck = false;
+            stuckCheckedAt = mob.tickCount;
+            lastX = mob.getX();
+            lastY = mob.getY();
+            lastZ = mob.getZ();
+        }
         Vec3 goal = goalPos();
         if (goal != null) {
             mob.getMoveControl().setWantedPosition(goal.x, goal.y, goal.z, 1.0D);

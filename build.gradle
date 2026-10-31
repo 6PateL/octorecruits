@@ -52,6 +52,7 @@ dependencies {
     // Mods we integrate with (file name must be <name>-<version>.jar in ./libs)
     implementation fg.deobf('blank:create-1.20.1:6.0.8')
     implementation fg.deobf('blank:recruits-1.20.1:1.15.2')
+    implementation fg.deobf('blank:tentaworks:1.6.0')
 
     // Libraries bundled inside Create (Flywheel, Ponder, Registrate...). Only needed so javac can resolve Create's class hierarchy.
     compileOnly fileTree(dir: 'libs/create-deps', include: ['*.jar'])
