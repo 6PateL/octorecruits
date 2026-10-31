@@ -26,6 +26,10 @@ public class OctoClimbGoal extends Goal {
     private Item checkedItem;
     private boolean checkedRig;
     private int climbTicks;
+    private int chaseTicks;
+    private int chaseCooldownUntil;
+    private int losCheckedAt = -100;
+    private boolean losCached;
 
     public OctoClimbGoal(AbstractRecruitEntity mob) {
         this.mob = mob;
@@ -71,10 +75,19 @@ public class OctoClimbGoal extends Goal {
         if (range <= 0 || target == null || !target.isAlive() || mob.getNavigation().isInProgress()) {
             return null;
         }
-        if (target.getY() < mob.getY() + 1.5D || mob.distanceToSqr(target) > (double) range * range) {
+        double dy = target.getY() - mob.getY();
+        if (dy < 1.5D || dy > 20.0D || mob.distanceToSqr(target) > (double) range * range) {
             return null;
         }
-        return target;
+        if (mob.tickCount < chaseCooldownUntil) {
+            return null;
+        }
+        // Only an enemy the recruit can actually see: never climb towards something behind a floor or a wall.
+        if (mob.tickCount - losCheckedAt >= 10) {
+            losCheckedAt = mob.tickCount;
+            losCached = mob.hasLineOfSight(target);
+        }
+        return losCached ? target : null;
     }
 
     @Override
@@ -93,6 +106,7 @@ public class OctoClimbGoal extends Goal {
     @Override
     public void stop() {
         climbTicks = 0;
+        chaseTicks = 0;
     }
 
     @Override
@@ -105,6 +119,13 @@ public class OctoClimbGoal extends Goal {
         LivingEntity target = chaseTarget();
         if (target != null) {
             mob.getMoveControl().setWantedPosition(target.getX(), target.getY(), target.getZ(), 1.0D);
+            if (++chaseTicks > 200) {
+                // Could not get there in 10 seconds: give up for a while instead of pressing at a wall forever.
+                chaseTicks = 0;
+                chaseCooldownUntil = mob.tickCount + 200;
+            }
+        } else {
+            chaseTicks = 0;
         }
         if (!mob.horizontalCollision) {
             return;
