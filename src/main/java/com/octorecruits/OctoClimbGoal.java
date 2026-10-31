@@ -23,6 +23,8 @@ import java.util.EnumSet;
 public class OctoClimbGoal extends Goal {
     private static final double GRAVITY_COMPENSATION = 0.0784D;
 
+    private static final java.util.concurrent.atomic.AtomicInteger LOGGED = new java.util.concurrent.atomic.AtomicInteger();
+
     private final AbstractRecruitEntity mob;
     private Item checkedItem;
     private boolean checkedRig;
@@ -129,7 +131,12 @@ public class OctoClimbGoal extends Goal {
             return null;
         }
         double d2 = mob.distanceToSqr(dest);
-        return d2 >= 36.0D && d2 <= (double) range * range ? dest : null;
+        if (d2 > (double) range * range) {
+            return null;
+        }
+        // Far away, or clearly higher than us (a pit): near and level means he has simply arrived.
+        boolean above = dest.y - mob.getY() >= 1.5D && d2 >= 4.0D;
+        return (d2 >= 36.0D || above) ? dest : null;
     }
 
     @Override
@@ -143,6 +150,14 @@ public class OctoClimbGoal extends Goal {
     @Override
     public boolean canContinueToUse() {
         return canUse();
+    }
+
+    @Override
+    public void start() {
+        if (LOGGED.getAndIncrement() < 20) {
+            OctoRecruits.LOGGER.info("Recruit {} started climbing at {} (wall={}, goal={})", mob.getName().getString(),
+                    mob.blockPosition(), mob.horizontalCollision, goalPos());
+        }
     }
 
     @Override
